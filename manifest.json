@@ -12,8 +12,10 @@
     "http://*/",
     "https://*/"
   ],
+  "content_security_policy": "script-src 'self' https://unpkg.com; object-src 'self'",
+
   "page_action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup/index.html"
   },
   // "browser_action": {
   //   // "default_icon": "icon.png",
