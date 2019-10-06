@@ -57,12 +57,12 @@ function start(){
       facebookTab.id,
       {file: 'facebook_scraper.js', allFrames: true},
       function(){
-        log('sending get_friends message');
+        log('sending getFriends message');
         chrome.tabs.sendMessage(
           facebookTab.id,
-          {"command": "get_friends"},
+          {"command": "getFriends"},
           function(response){
-            log('got response from get_friends message', response)
+            log('got response from getFriends message', response)
           }
         );
       }
