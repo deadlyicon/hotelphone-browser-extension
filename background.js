@@ -14,14 +14,10 @@ log('loading…');
 //   });
 // });
 
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  log('MESSAGE RECEIVED', request, sender);
-  if (request.msg === "start") start();
-});
 
-chrome.extension.onRequest.addListener(function(payload) {
-  log('onRequest', payload);
-});
+// chrome.extension.onRequest.addListener(function(payload) {
+//   log('onRequest', payload);
+// });
 
 chrome.runtime.onInstalled.addListener(function() {
   chrome.storage.sync.set({color: '#3aa757'}, function() {
@@ -45,6 +41,12 @@ chrome.runtime.onInstalled.addListener(function() {
 });
 
 
+// messages come in from the popup
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  log('MESSAGE RECEIVED', request, sender);
+  if (request.msg === "start") start();
+});
+
 function start(){
   let facebookTab
   chrome.tabs.create({url: 'https://m.facebook.com/'}, function(tab){
@@ -54,13 +56,16 @@ function start(){
     chrome.tabs.executeScript(
       facebookTab.id,
       {file: 'facebook_scraper.js', allFrames: true},
+      function(){
+        log('sending get_friends message');
+        chrome.tabs.sendMessage(
+          facebookTab.id,
+          {"command": "get_friends"},
+          function(response){
+            log('got response from get_friends message', response)
+          }
+        );
+      }
     );
-
-    setTimeout(() => {
-      chrome.tabs.sendMessage(
-        facebookTab.id,
-        {"message": "get_friends"}
-      );
-    })
   })
 }
