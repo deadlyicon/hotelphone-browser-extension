@@ -7,7 +7,10 @@
     "activeTab",
     "tabs",
     "declarativeContent",
-    "storage"
+    "storage",
+    "notifications",
+    "http://*/",
+    "https://*/"
   ],
   "page_action": {
     "default_popup": "popup.html"
@@ -15,14 +18,14 @@
   // "browser_action": {
   //   // "default_icon": "icon.png",
   // },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://m.facebook.com/*"
-      ],
-      "js": ["facebook.js"]
-    }
-  ],
+  // "content_scripts": [
+  //   {
+  //     "matches": [
+  //       "https://m.facebook.com/*"
+  //     ],
+  //     "js": ["facebook.js"]
+  //   }
+  // ],
   "background": {
     "scripts": ["background.js"],
     "persistent": true

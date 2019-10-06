@@ -5,7 +5,11 @@ const log = (...args) =>
 log('loading…');
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  log('MESSAGE RECEIVED', {request, sender});
+  log('MESSAGE RECEIVED (runtime)', {request, sender});
+});
+
+chrome.extension.onMessage.addListener(function(message, sender, sendResponse) {
+  log('MESSAGE RECEIVED (extension)', {request, sender});
 });
 
 chrome.storage.sync.get('color', function(data) {

@@ -19,6 +19,10 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.msg === "start") start();
 });
 
+chrome.extension.onRequest.addListener(function(payload) {
+  log('onRequest', payload);
+});
+
 chrome.runtime.onInstalled.addListener(function() {
   chrome.storage.sync.set({color: '#3aa757'}, function() {
     console.log('The color is green.');
@@ -41,14 +45,22 @@ chrome.runtime.onInstalled.addListener(function() {
 });
 
 
-
 function start(){
   let facebookTab
   chrome.tabs.create({url: 'https://m.facebook.com/'}, function(tab){
     facebookTab = tab
-    chrome.tabs.sendMessage(
+
+    // chrome.tabs.onUpdated.addListener(function callback)
+    chrome.tabs.executeScript(
       facebookTab.id,
-      {"message": "get_friends"}
+      {file: 'facebook_scraper.js', allFrames: true},
     );
+
+    setTimeout(() => {
+      chrome.tabs.sendMessage(
+        facebookTab.id,
+        {"message": "get_friends"}
+      );
+    })
   })
 }
