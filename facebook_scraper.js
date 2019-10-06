@@ -119,15 +119,9 @@ const actions = {
     log({friendsContainerSelector})
 
     // scroll down to load all friends
-    // let pageHeight = getPageHeight();
     while($('.seeMoreFriends')){
       window.scrollTo(0,99999)
       await wait(100);
-      // await waitForPageMutationsToStartAndStop();
-      // let newPageHeight = getPageHeight();
-      // log('more friends?', {pageHeight, newPageHeight})
-      // if (pageHeight === newPageHeight) break;
-      // pageHeight = newPageHeight;
     }
 
     const friendNodes = $$(friendsContainerSelector);
