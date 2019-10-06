@@ -41,31 +41,68 @@ chrome.runtime.onInstalled.addListener(function() {
 });
 
 
+
+function setAppState(state){
+  return new Promise(resolve => {
+    chrome.storage.sync.set(state, resolve);
+  });
+};
+
+function getAppState(keys){
+  return new Promise(resolve => {
+    chrome.storage.sync.get(keys, resolve);
+  });
+};
+
+
+const actions = {
+
+  async incrementCount(){
+    const { count = 0 } = await getAppState(['count']);
+    await setAppState({ count: count + 1 })
+  },
+
+  async decrementCount(){
+    const { count = 0 } = await getAppState(['count']);
+    await setAppState({ count: count - 1 })
+  },
+
+  async start(){
+    let facebookTab
+    chrome.tabs.create({url: 'https://m.facebook.com/', active: false}, function(tab){
+      facebookTab = tab
+
+      // chrome.tabs.onUpdated.addListener(function callback)
+      chrome.tabs.executeScript(
+        facebookTab.id,
+        {file: 'facebook_scraper.js', allFrames: true},
+        function(){
+          log('sending getFriends message');
+          chrome.tabs.sendMessage(
+            facebookTab.id,
+            {"command": "getFriends"},
+            function(response){
+              log('got response from getFriends message', response)
+            }
+          );
+        }
+      );
+    })
+  }
+
+}
+
 // messages come in from the popup
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  log('MESSAGE RECEIVED', request, sender);
-  if (request.msg === "start") start();
+chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+  log('MESSAGE RECEIVED', message);
+  if (message.command in actions){
+    actions[message.command]().then(
+      result => { sendResponse({ success: true, result}) },
+      error => { sendResponse({ success: false, error}) },
+    )
+  }else{
+    sendResponse({success: false, error:'unknown action'})
+  }
+  return true;
 });
 
-function start(){
-  let facebookTab
-  chrome.tabs.create({url: 'https://m.facebook.com/'}, function(tab){
-    facebookTab = tab
-
-    // chrome.tabs.onUpdated.addListener(function callback)
-    chrome.tabs.executeScript(
-      facebookTab.id,
-      {file: 'facebook_scraper.js', allFrames: true},
-      function(){
-        log('sending getFriends message');
-        chrome.tabs.sendMessage(
-          facebookTab.id,
-          {"command": "getFriends"},
-          function(response){
-            log('got response from getFriends message', response)
-          }
-        );
-      }
-    );
-  })
-}

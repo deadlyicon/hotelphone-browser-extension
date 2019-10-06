@@ -4,47 +4,66 @@ const log = (...args) =>
 
 log('loading…');
 
-
-
 const h = React.createElement.bind(React);
+
+const setAppState = (...args) =>
+  chrome.storage.sync.set(...args);
+;
 
 class App extends React.Component {
   constructor(){
     super()
     this.keys = ['count'];
-    this.state = {};
+    this.state = {loadingState: true};
     chrome.storage.sync.get(this.keys, state => {
-      log('constructor state', state);
-      this.setState(state);
+      this.setState({
+        loadingState: false,
+        ...state,
+      });
     });
     chrome.storage.onChanged.addListener((changes, namespace) => {
-      log('state changed', changes);
       const state = {}
       for(const key in changes) state[key] = changes[key].newValue;
       this.setState(state);
     });
   }
 
-  setAppState = (...args) => {
-    return chrome.storage.sync.set(...args);
-  }
-
   inc = () => {
     const count = (this.state.count || 0) + 1;
-    this.setAppState({count});
+    setAppState({count});
   }
 
   render() {
     log('render', this.state)
+
+    if (this.state.loadingState) return (
+      h('div', {className:'App'},
+        h('h1', {}, 'Loading…'),
+      )
+    )
     return h('div', {className:'App'},
       h('h1', {}, 'HotelPhone!'),
       h('h3', {}, `Count: ${this.state.count || 0}`),
       h(
         'button',
         {
-          onClick: this.inc,
+          onClick: () => { sendCommandToBackground('decrementCount') },
+        },
+        '-'
+      ),
+      h(
+        'button',
+        {
+          onClick: () => { sendCommandToBackground('incrementCount') },
         },
         '+'
+      ),
+      h(
+        'button',
+        {
+          onClick: () => { sendCommandToBackground('start') },
+        },
+        'start'
       ),
 
     );
@@ -54,6 +73,14 @@ class App extends React.Component {
 ReactDOM.render(h(App), document.querySelector('main'));
 
 
+function sendCommandToBackground(command){
+  return new Promise(resolve => {
+    chrome.runtime.sendMessage({ command }, function(response){
+      // TODO handle runtime.lastError
+      resolve(response)
+    });
+  });
+}
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   log('MESSAGE RECEIVED (runtime)', {request, sender});
@@ -86,11 +113,11 @@ chrome.extension.onMessage.addListener(function(message, sender, sendResponse) {
 //   // });
 // });
 
-function start(){
-  chrome.runtime.sendMessage({
-    msg: "start",
-    data: {
-      please: true,
-    }
-  });
-}
+// function start(){
+//   chrome.runtime.sendMessage({
+//     msg: "start",
+//     data: {
+//       please: true,
+//     }
+//   });
+// }
