@@ -7,7 +7,6 @@ log('loading…');
 let DOMLastMutatedAt = Date.now()
 const DOMObserver = new MutationObserver(function(mutationLiust, observer){
   DOMLastMutatedAt = Date.now();
-  log('MUTATION', DOMLastMutatedAt)
 });
 DOMObserver.observe(document.body, {childList: true, subtree: true});
 
@@ -19,27 +18,43 @@ function wait(milliseconds){
 }
 
 async function waitForPageMutationsToStartAndStop(){
+  log('waitForPageMutationsToStartAndStop WAITING')
   const DOMLastMutatedWhenStarted = DOMLastMutatedAt;
+  await wait(200)
+  // while(true){
+  //   if (DOMLastMutatedAt > DOMLastMutatedWhenStarted) break;
+  //   await wait(20)
+  // }
   while(true){
-    if (DOMLastMutatedAt > DOMLastMutatedWhenStarted) break;
-    await wait(20)
-  }
-  while(true){
-    log('waiting for DOM mutations to stop', Date.now() - DOMLastMutatedAt)
-    if (Date.now() - DOMLastMutatedAt > 200) return
+    if (Date.now() - DOMLastMutatedAt > 1000){
+      log('waitForPageMutationsToStartAndStop DONE')
+      return
+    }
     await wait(20)
   }
 }
 
 const $ = selector => document.querySelector(selector)
+const $$ = selector => Array.from(document.querySelectorAll(selector))
 
-async function waitForSelector(selector){
+async function waitForElement(selector, timeout=1000){
   const startedAt = Date.now()
   while(true){
-    if (Date.now() - startedAt > 1000)
-      throw new Error(`failed to find element '${selector}'`);
+    if (timeout !== 0 && Date.now() - startedAt > timeout)
+      throw new Error(`failed to find element matching '${selector}'`);
     const node = $(selector)
     if (node) return node;
+    await wait(10)
+  }
+}
+
+async function waitForNoElement(selector, timeout=1000){
+  const startedAt = Date.now()
+  while(true){
+    if (timeout !== 0 && Date.now() - startedAt > timeout)
+      throw new Error(`failed to not find element matching '${selector}'`);
+    const node = $(selector)
+    if (!node) return;
     await wait(10)
   }
 }
@@ -85,26 +100,51 @@ const actions = {
   },
   async goToFriendsPage(){
     await actions.goToProfilePage();
-    (await waitForSelector('a[href*="/friends?"]')).click();
+    (await waitForElement('a[href*="/friends?"]')).click();
     await waitForPageMutationsToStartAndStop();
   },
   async getFriends(){
     log('getting friends');
     await actions.goToFriendsPage();
-    let pageHeight = getPageHeight();
-    while(true){
-      window.scrollTo(0,99999)
-      await waitForPageMutationsToStartAndStop();
-      let newPageHeight = getPageHeight();
-      if (pageHeight === newPageHeight) break;
-      pageHeight = newPageHeight;
-    }
-    const header = Array.from($$('Header'))
-      .find(h => h.innerText.contains('Friends'))
-    const friendsContainerSelector = header.nextElementSibling
+
+    // look for friends header
+    const header = $$('Header').find(h => h.innerText.includes('Friends'))
+    log({header})
+
+    const friendsContainerSelector = (
+      header.nextElementSibling
       .getAttribute('class')
-      .split(/\s+/g).map(x => `.${x}`).join('')
-    const friendNodes = $$(`${friendsContainerSelector} > div`);
+      .split(/\s+/g).map(x => `.${x}`).join('') + ' > div'
+    )
+    log({friendsContainerSelector})
+
+    // scroll down to load all friends
+    // let pageHeight = getPageHeight();
+    while($('.seeMoreFriends')){
+      window.scrollTo(0,99999)
+      await wait(100);
+      // await waitForPageMutationsToStartAndStop();
+      // let newPageHeight = getPageHeight();
+      // log('more friends?', {pageHeight, newPageHeight})
+      // if (pageHeight === newPageHeight) break;
+      // pageHeight = newPageHeight;
+    }
+
+    const friendNodes = $$(friendsContainerSelector);
     log('friendNodes', friendNodes);
+
+    const friends = friendNodes.map(friendNode => {
+      const avatarLink = friendNode.querySelector('a.darkTouch');
+      const avatarImg = avatarLink.querySelector('i');
+      return {
+        profilePath: avatarLink.pathname,
+        name: avatarImg.getAttribute('aria-label'),
+        avatarImageUrl: avatarImg.style.backgroundImage.slice(5, -2),
+        mutualFriendsCount: friendNode.querySelector('[data-sigil="m-add-friend-source-replaceable"]').innerText.split(/\s+/)[0],
+      }
+    })
+
+    log('friends', friends);
+    return friends
   },
 }
