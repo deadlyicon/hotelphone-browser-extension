@@ -29,8 +29,10 @@ function exec(command){
 }
 
 const {
+  MuiThemeProvider,
   Container,
   Typography,
+  CircularProgress,
   Button,
   Grid,
   Avatar,
@@ -38,6 +40,16 @@ const {
   ListItem,
   ListItemText,
 } = MaterialUI;
+
+const theme = MaterialUI.createMuiTheme({
+  // palette: {
+  //   primary: MaterialUI.colors.purple,
+  //   secondary: MaterialUI.colors.green,
+  // },
+  // status: {
+  //   danger: 'orange',
+  // },
+});
 
 class App extends React.Component {
   constructor(){
@@ -82,7 +94,7 @@ class App extends React.Component {
 
     if (loadingState) return (
       h(Container, {className: 'App'},
-        h(Typography, {variant:'h3', gutterBottom: true}, 'Loading…')
+        h(CircularProgress, { color: 'secondary' })
       )
     )
 
@@ -118,7 +130,7 @@ class App extends React.Component {
       ),
 
       // facebooks slurp state
-      h(List, {},
+      h(List, { dense: true },
         h(ListItem, {},
           h(ListItemText, {
             primary: 'Facebook Username',
@@ -143,7 +155,10 @@ class App extends React.Component {
   }
 }
 
-ReactDOM.render(h(App), document.querySelector('main'));
+ReactDOM.render(
+  h(MuiThemeProvider, {theme}, h(App)),
+  document.querySelector('main')
+);
 
 class FacebookAvatars extends React.PureComponent {
   render(){
