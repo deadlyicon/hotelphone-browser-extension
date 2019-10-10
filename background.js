@@ -39,16 +39,6 @@ chrome.browserAction.onClicked.addListener(function(){
 
 
 chrome.runtime.onInstalled.addListener(function() {
-  // chrome.contextMenus.create({
-  //   "id": "sampleContextMenu",
-  //   "title": "Sample Context Menu",
-  //   "contexts": ["selection"]
-  // });
-
-  chrome.storage.sync.set({color: '#3aa757'}, function() {
-    console.log('The color is green.');
-  });
-
   chrome.declarativeContent.onPageChanged.removeRules(undefined, function() {
     chrome.declarativeContent.onPageChanged.addRules(
       [
@@ -74,18 +64,16 @@ function setAppState(state){
   });
 };
 
-function getAppState(keys){
+function getAppState(keys=null){
   return new Promise(resolve => {
     chrome.storage.sync.get(keys, resolve);
   });
 };
 
 
-function createFacebookTab(){
+function createTab(url){
   return new Promise((resolve, reject) => {
-    chrome.tabs.create({url: 'https://m.facebook.com/', active: false}, function(tab){
-      resolve(tab);
-    });
+    chrome.tabs.create({url, active: false}, resolve);
   });
 };
 
@@ -93,7 +81,7 @@ function getFacebookTab(){
   return new Promise((resolve, reject) => {
     chrome.tabs.query({url: 'https://m.facebook.com/*'}, function(tabs) {
       if (tabs[0]) return resolve(tabs[0]);
-      createFacebookTab.then(resolve, reject)
+      createTab.then(resolve, reject)
     });
   });
 }
@@ -107,18 +95,44 @@ function executeScript(tab, options){
   });
 }
 
+function sendMessageToTab(tab, message){
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(
+      tab.id,
+      message,
+      function({error, ...response}){
+        if (error) { reject(error) } else { resolve(response) };
+      }
+    );
+  });
+}
+
 const actions = {
 
   async getFacebookUser(){
-    const facebookTab = await createFacebookTab();
+    await setAppState({ gettingFacebookUser: true, facebookUser: null });
+    const facebookTab = await createTab('https://m.facebook.com/');
     const facebookUser = await executeScript(
       facebookTab,
-      {
-        code: `document.querySelector('.profpic').closest('a[href]').pathname.slice(1)`,
-      },
+      {code: `document.querySelector('.profpic').closest('a[href]').pathname.slice(1)`, },
     );
     chrome.tabs.remove([facebookTab.id]);
-    return facebookUser;
+    await setAppState({ gettingFacebookUser: false, facebookUser });
+  },
+
+  async getFacebookFriends(){
+    await setAppState({ gettingFacebookFriends: true, facebookFriends: [] });
+    const facebookTab = await createTab('https://mbasic.facebook.com/friends/center/friends/');
+    const facebookFriends = []
+    while(true){
+      await executeScript(facebookTab, {file: 'scripts/get_page_of_facebook_friends.js'});
+      const pageOfFriends = await sendMessageToTab(facebookTab);
+      // facebookFriends.push(...pageOfFriends)
+      await setAppState({ facebookFriends });
+      break;
+    }
+    chrome.tabs.remove([facebookTab.id]);
+    await setAppState({ gettingFacebookFriends: false });
   },
 
   async incrementCount(){

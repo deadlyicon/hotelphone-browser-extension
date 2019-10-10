@@ -49,16 +49,7 @@ class App extends React.Component {
   }
 
   async getFacebookUser(){
-    await setAppState({
-      gettingFacebookUser: true,
-      facebookUser: null,
-    })
-    const facebookUser = await sendCommandToBackground('getFacebookUser');
-    console.log({ facebookUser })
-    await setAppState({
-      gettingFacebookUser: null,
-      facebookUser
-    })
+    await sendCommandToBackground('getFacebookUser');
   }
 
   inc = () => {
@@ -82,8 +73,21 @@ class App extends React.Component {
     return h('div', {className:'App'},
       h('h1', {}, 'HotelPhone!'),
       h('div', {},
-        h('button', {onClick: this.reset}, 'reset'),
-        h('button', {onClick: this.getFacebookUser}, 'get facebook user'),
+        h(
+          'button',
+          {onClick: this.reset},
+          'reset'
+        ),
+        h(
+          'button',
+          {onClick: () => { sendCommandToBackground('getFacebookUser') }},
+          'get facebook user'
+        ),
+        h(
+          'button',
+          {onClick: () => { sendCommandToBackground('getFacebookFriends') }},
+          'get facebook friends'
+        ),
       ),
       h('div', {},
         h('span', {}, 'STATE:'),
@@ -97,22 +101,23 @@ ReactDOM.render(h(App), document.querySelector('main'));
 
 
 function sendCommandToBackground(command){
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage({ command }, function({success, error, result}){
-      // TODO handle runtime.lastError
-      if (!success) {
-        reject(new Error(error || 'unkown error'));
-      }else{
-        resolve(result)
-      }
-    });
-  });
+  chrome.runtime.sendMessage({ command });
+  // return new Promise((resolve, reject) => {
+  //   chrome.runtime.sendMessage({ command }, function({success, error, result}){
+  //     // TODO handle runtime.lastError
+  //     if (!success) {
+  //       reject(new Error(error || 'unkown error'));
+  //     }else{
+  //       resolve(result)
+  //     }
+  //   });
+  // });
 }
 
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  log('MESSAGE RECEIVED (runtime)', {request, sender});
+chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
+  log('MESSAGE RECEIVED (runtime)', {message});
 });
 
 chrome.extension.onMessage.addListener(function(message, sender, sendResponse) {
-  log('MESSAGE RECEIVED (extension)', {request, sender});
+  log('MESSAGE RECEIVED (extension)', {message});
 });
