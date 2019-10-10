@@ -28,6 +28,13 @@ function exec(command){
   chrome.runtime.sendMessage({ command });
 }
 
+const {
+  Container,
+  Button,
+  Grid,
+  Avatar,
+} = MaterialUI;
+
 class App extends React.Component {
   constructor(){
     super()
@@ -70,29 +77,38 @@ class App extends React.Component {
     )
 
     if (loadingState) return (
-      h('div', {className: 'App'},
+      h(Container, {className: 'App'},
         h('h1', {}, 'Loading…'),
       )
     )
 
-    return h('div', {className: 'App'},
+    return h(Container, {className: 'App'},
       h('h1', {}, 'HotelPhone!'),
 
       // buttons
       h('div', {},
         h(
-          'button',
-          {onClick: this.reset},
+          Button,
+          {
+            onClick: this.reset,
+            color: 'secondary',
+          },
           'reset'
         ),
         h(
-          'button',
-          {onClick: () => { exec('getFacebookUsername') }},
+          Button,
+          {
+            onClick: () => { exec('getFacebookUsername') },
+            color: 'primary',
+          },
           'get facebook user'
         ),
         h(
-          'button',
-          {onClick: () => { exec('getFacebookFriends') }},
+          Button,
+          {
+            onClick: () => { exec('getFacebookFriends') },
+            color: 'primary',
+          },
           'get facebook friends'
         ),
       ),
@@ -127,16 +143,19 @@ class FacebookAvatars extends React.PureComponent {
     const nodes = facebookFriends.map(friend =>
       h('a',
         {
-          href: friend.profileUrl,
           key: friend.uid,
+          href: friend.profileUrl,
+          title: friend.name,
+          alt: friend.name,
           target: '_blank',
         },
-        h('img', {
+        h(Avatar, {
+          alt: friend.name,
           className: 'FacebookAvatars-avatar',
           src: friend.avatarImageUrl,
         })
       )
     )
-    return h('div', {className: 'FacebookAvatars'}, nodes);
+    return h(Grid, {className: 'FacebookAvatars'}, nodes);
   }
 }

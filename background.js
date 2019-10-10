@@ -136,18 +136,19 @@ const actions = {
     try{
       await setAppState({ gettingFacebookFriends: true, facebookFriends: [] });
       let nextPageOfFriends = 'https://mbasic.facebook.com/friends/center/friends/';
-      const facebookFriendUids = []
+      const facebookFriendUids = new Set;
       while(true){
         if (!nextPageOfFriends) break;
         const facebookTab = await createTab(nextPageOfFriends);
         await executeScript(facebookTab, {file: 'scripts/get_page_of_facebook_friends.js'});
         const results = await sendMessageToTab(facebookTab);
         log(results);
-        const newState = { facebookFriendUids };
+        const newState = {};
         results.pageOfFriends.forEach(friend => {
-          facebookFriendUids.push(friend.uid);
+          facebookFriendUids.add(friend.uid);
           newState[`facebookFriend:${friend.uid}`] = friend;
         })
+        newState = Array.from(facebookFriendUids);
         await setAppState(newState);
         nextPageOfFriends = results.nextPageOfFriends;
         chrome.tabs.remove([facebookTab.id]);
