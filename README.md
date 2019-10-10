@@ -5,11 +5,9 @@
 
 ## Install
 
-```sh
-npm install && bower install
-```
-
 Install as unpacked chrome extensions
+
+## Use
 
 click Icon
 
