@@ -121,37 +121,44 @@ function sendMessageToTab(tab, message){
 
 const actions = {
 
-  async getFacebookUser(){
-    await setAppState({ gettingFacebookUser: true, facebookUser: null });
+  async getFacebookUsername(){
+    await setAppState({ gettingFacebookUser: true, facebookUsername: null });
     const facebookTab = await createTab('https://m.facebook.com/');
-    const facebookUser = await executeScript(
+    const facebookUsername = await executeScript(
       facebookTab,
       {code: `document.querySelector('.profpic').closest('a[href]').pathname.slice(1)`, },
     );
     chrome.tabs.remove([facebookTab.id]);
-    await setAppState({ gettingFacebookUser: false, facebookUser });
+    await setAppState({ gettingFacebookUser: false, facebookUsername });
   },
 
   async getFacebookFriends(){
-    await setAppState({ gettingFacebookFriends: true, facebookFriends: [] });
-    let nextPageOfFriends = 'https://mbasic.facebook.com/friends/center/friends/';
-    const facebookFriends = []
-    while(true){
-      if (!nextPageOfFriends) break;
-      const facebookTab = await createTab(nextPageOfFriends);
-      await executeScript(facebookTab, {file: 'scripts/get_page_of_facebook_friends.js'});
-      const results = await sendMessageToTab(facebookTab);
-      log(results);
-      const newState = { facebookFriends };
-      results.pageOfFriends.forEach(friend => {
-        facebookFriends.push(friend.uid);
-        newState[`facebookFriend:${friend.uid}`] = friend;
-      })
-      await setAppState(newState);
-      nextPageOfFriends = results.nextPageOfFriends;
-      chrome.tabs.remove([facebookTab.id]);
+    try{
+      await setAppState({ gettingFacebookFriends: true, facebookFriends: [] });
+      let nextPageOfFriends = 'https://mbasic.facebook.com/friends/center/friends/';
+      const facebookFriendUids = []
+      while(true){
+        if (!nextPageOfFriends) break;
+        const facebookTab = await createTab(nextPageOfFriends);
+        await executeScript(facebookTab, {file: 'scripts/get_page_of_facebook_friends.js'});
+        const results = await sendMessageToTab(facebookTab);
+        log(results);
+        const newState = { facebookFriendUids };
+        results.pageOfFriends.forEach(friend => {
+          facebookFriendUids.push(friend.uid);
+          newState[`facebookFriend:${friend.uid}`] = friend;
+        })
+        await setAppState(newState);
+        nextPageOfFriends = results.nextPageOfFriends;
+        chrome.tabs.remove([facebookTab.id]);
+      }
+      await setAppState({ gettingFacebookFriends: false });
+    }catch(errorGettingFacebookFriends){
+      await setAppState({
+        gettingFacebookFriends: false,
+        errorGettingFacebookFriends,
+      });
     }
-    await setAppState({ gettingFacebookFriends: false });
   },
 
   async getFacebookFriendProfile(){

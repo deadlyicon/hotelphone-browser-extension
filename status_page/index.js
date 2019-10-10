@@ -8,10 +8,7 @@ const h = React.createElement.bind(React);
 
 function getAppState(){
   return new Promise((resolve, reject) => {
-    chrome.storage.local.get(null, state => {
-      resolve(state);
-      // TODO handle error state here;
-    });
+    chrome.storage.local.get(null, resolve);
   });
 }
 
@@ -27,6 +24,9 @@ function clearAppState(){
   });
 };
 
+function exec(command){
+  chrome.runtime.sendMessage({ command });
+}
 
 class App extends React.Component {
   constructor(){
@@ -49,12 +49,7 @@ class App extends React.Component {
   }
 
   async getFacebookUser(){
-    await sendCommandToBackground('getFacebookUser');
-  }
-
-  inc = () => {
-    const count = (this.state.count || 0) + 1;
-    setAppState({count});
+    await exec('getFacebookUser');
   }
 
   reset = async () => {
@@ -64,14 +59,26 @@ class App extends React.Component {
   render() {
     log('render', this.state)
 
-    if (this.state.loadingState) return (
-      h('div', {className:'App'},
+    const {
+      loadingState,
+      facebookUsername,
+      facebookFriendUids = [],
+    } = this.state;
+
+    const facebookFriends = facebookFriendUids.map(facebookFriendUid =>
+      this.state[`facebookFriend:${facebookFriendUid}`]
+    )
+
+    if (loadingState) return (
+      h('div', {className: 'App'},
         h('h1', {}, 'Loading…'),
       )
     )
 
-    return h('div', {className:'App'},
+    return h('div', {className: 'App'},
       h('h1', {}, 'HotelPhone!'),
+
+      // buttons
       h('div', {},
         h(
           'button',
@@ -80,15 +87,30 @@ class App extends React.Component {
         ),
         h(
           'button',
-          {onClick: () => { sendCommandToBackground('getFacebookUser') }},
+          {onClick: () => { exec('getFacebookUsername') }},
           'get facebook user'
         ),
         h(
           'button',
-          {onClick: () => { sendCommandToBackground('getFacebookFriends') }},
+          {onClick: () => { exec('getFacebookFriends') }},
           'get facebook friends'
         ),
       ),
+
+      // facebooks slurp state
+      h('div', {},
+        h('div', {},
+          h('strong', {}, 'Facebook Username: '),
+          h('span', {}, facebookUsername),
+        ),
+        h('div', {},
+          h('strong', {}, 'Number of slupred Facebook friends: '),
+          h('span', {}, facebookFriendUids.length),
+        ),
+      ),
+
+      h(FacebookAvatars, { facebookFriends }),
+
       h('div', {},
         h('span', {}, 'STATE:'),
         h('pre', {}, JSON.stringify(this.state, null, 2)),
@@ -99,25 +121,22 @@ class App extends React.Component {
 
 ReactDOM.render(h(App), document.querySelector('main'));
 
-
-function sendCommandToBackground(command){
-  chrome.runtime.sendMessage({ command });
-  // return new Promise((resolve, reject) => {
-  //   chrome.runtime.sendMessage({ command }, function({success, error, result}){
-  //     // TODO handle runtime.lastError
-  //     if (!success) {
-  //       reject(new Error(error || 'unkown error'));
-  //     }else{
-  //       resolve(result)
-  //     }
-  //   });
-  // });
+class FacebookAvatars extends React.PureComponent {
+  render(){
+    const { facebookFriends = [] } = this.props;
+    const nodes = facebookFriends.map(friend =>
+      h('a',
+        {
+          href: friend.profileUrl,
+          key: friend.uid,
+          target: '_blank',
+        },
+        h('img', {
+          className: 'FacebookAvatars-avatar',
+          src: friend.avatarImageUrl,
+        })
+      )
+    )
+    return h('div', {className: 'FacebookAvatars'}, nodes);
+  }
 }
-
-chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
-  log('MESSAGE RECEIVED (runtime)', {message});
-});
-
-chrome.extension.onMessage.addListener(function(message, sender, sendResponse) {
-  log('MESSAGE RECEIVED (extension)', {message});
-});

@@ -18,15 +18,15 @@ async function getPageOfFriends(){
   const pageOfFriends = Array.from(friendNodes).map(friendNode => {
     const image = friendNode.querySelector('img[alt]');
     const link = friendNode.querySelector('a[href]');
-    const profilePath = link.getAttribute('href');
-    const uid = profilePath.match(/uid=(\d+)/)[1];
+    const profileUrl = link.href
+    const uid = profileUrl.match(/uid=(\d+)/)[1];
     // uid=103597&
     const mutualFriends = link.nextElementSibling;
     return {
       uid,
       avatarImageUrl: image.src,
       name: image.getAttribute('alt'),
-      profilePath,
+      profileUrl,
       mutualFriendsCount: mutualFriends.innerText.split(/\s+/)[0],
     };
   })

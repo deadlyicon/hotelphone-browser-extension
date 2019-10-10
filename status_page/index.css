@@ -1,0 +1,9 @@
+.FacebookAvatars {
+  display: flex;
+  flex-wrap: wrap;
+}
+.FacebookAvatars-avatar {
+  height: 40px;
+  width: 40px;
+  margin: 2px;
+}
