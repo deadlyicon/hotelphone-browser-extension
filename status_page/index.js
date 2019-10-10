@@ -30,9 +30,13 @@ function exec(command){
 
 const {
   Container,
+  Typography,
   Button,
   Grid,
   Avatar,
+  List,
+  ListItem,
+  ListItemText,
 } = MaterialUI;
 
 class App extends React.Component {
@@ -78,12 +82,12 @@ class App extends React.Component {
 
     if (loadingState) return (
       h(Container, {className: 'App'},
-        h('h1', {}, 'Loading…'),
+        h(Typography, {variant:'h3', gutterBottom: true}, 'Loading…')
       )
     )
 
     return h(Container, {className: 'App'},
-      h('h1', {}, 'HotelPhone!'),
+      h(Typography, {variant:'h1', gutterBottom: true}, 'HotelPhone!'),
 
       // buttons
       h('div', {},
@@ -114,14 +118,18 @@ class App extends React.Component {
       ),
 
       // facebooks slurp state
-      h('div', {},
-        h('div', {},
-          h('strong', {}, 'Facebook Username: '),
-          h('span', {}, facebookUsername),
+      h(List, {},
+        h(ListItem, {},
+          h(ListItemText, {
+            primary: 'Facebook Username',
+            secondary: facebookUsername,
+          })
         ),
-        h('div', {},
-          h('strong', {}, 'Number of slupred Facebook friends: '),
-          h('span', {}, facebookFriendUids.length),
+        h(ListItem, {},
+          h(ListItemText, {
+            primary: 'Number of slupred Facebook friends',
+            secondary: facebookFriendUids.length,
+          })
         ),
       ),
 
