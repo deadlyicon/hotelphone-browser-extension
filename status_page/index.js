@@ -8,7 +8,7 @@ const h = React.createElement.bind(React);
 
 function getAppState(){
   return new Promise((resolve, reject) => {
-    chrome.storage.sync.get(null, state => {
+    chrome.storage.local.get(null, state => {
       resolve(state);
       // TODO handle error state here;
     });
@@ -17,13 +17,13 @@ function getAppState(){
 
 function setAppState(state){
   return new Promise(resolve => {
-    chrome.storage.sync.set(state, resolve);
+    chrome.storage.local.set(state, resolve);
   });
 };
 
 function clearAppState(){
   return new Promise(resolve => {
-    chrome.storage.sync.clear(resolve);
+    chrome.storage.local.clear(resolve);
   });
 };
 
@@ -40,7 +40,7 @@ class App extends React.Component {
   async initialize(){
     const appState = await getAppState()
     this.setState({ loadingState: false, ...appState });
-    chrome.storage.onChanged.addListener(changes => {
+    chrome.storage.local.onChanged.addListener(changes => {
       console.log('storage change', changes)
       const state = {};
       for(const key in changes) state[key] = changes[key].newValue;

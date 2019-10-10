@@ -60,13 +60,13 @@ chrome.runtime.onInstalled.addListener(function() {
 
 function setAppState(state){
   return new Promise(resolve => {
-    chrome.storage.sync.set(state, resolve);
+    chrome.storage.local.set(state, resolve);
   });
 };
 
 function getAppState(keys=null){
   return new Promise(resolve => {
-    chrome.storage.sync.get(keys, resolve);
+    chrome.storage.local.get(keys, resolve);
   });
 };
 
@@ -89,7 +89,11 @@ function getFacebookTab(){
 function executeScript(tab, options){
   return new Promise((resolve, reject) => {
     chrome.tabs.executeScript(tab.id, options, (results) => {
-      // TODO handle errors here
+      if (!results && chrome.runtime.lastError) {
+        const error = chrome.runtime.lastError;
+        chrome.runtime.lastError = undefined;
+        return reject(error)
+      }
       resolve(results[0])
     });
   });
@@ -103,7 +107,12 @@ function sendMessageToTab(tab, message){
       {},
       function(response){
         log('sendMessageToTab response', response)
-        if (response && response.error) { return reject(error) }
+        if (chrome.runtime.lastError) {
+          const error = chrome.runtime.lastError;
+          chrome.runtime.lastError = undefined;
+          return reject(error)
+        }
+        if (response && response.error) { return reject(response.error) }
         resolve(response);
       }
     );
@@ -125,18 +134,30 @@ const actions = {
 
   async getFacebookFriends(){
     await setAppState({ gettingFacebookFriends: true, facebookFriends: [] });
-    const facebookTab = await createTab('https://mbasic.facebook.com/friends/center/friends/');
+    let nextPageOfFriends = 'https://mbasic.facebook.com/friends/center/friends/';
     const facebookFriends = []
     while(true){
+      if (!nextPageOfFriends) break;
+      const facebookTab = await createTab(nextPageOfFriends);
       await executeScript(facebookTab, {file: 'scripts/get_page_of_facebook_friends.js'});
-      const pageOfFriends = await sendMessageToTab(facebookTab);
-      log('????', pageOfFriends);
-      facebookFriends.push(...pageOfFriends)
-      await setAppState({ facebookFriends });
-      break;
+      const results = await sendMessageToTab(facebookTab);
+      log(results);
+      const newState = { facebookFriends };
+      results.pageOfFriends.forEach(friend => {
+        facebookFriends.push(friend.uid);
+        newState[`facebookFriend:${friend.uid}`] = friend;
+      })
+      await setAppState(newState);
+      nextPageOfFriends = results.nextPageOfFriends;
+      chrome.tabs.remove([facebookTab.id]);
     }
-    chrome.tabs.remove([facebookTab.id]);
     await setAppState({ gettingFacebookFriends: false });
+  },
+
+  async getFacebookFriendProfile(){
+    // goto https://mbasic.facebook.com/friends/hovercard/mbasic/?uid=${friend.uid}&redirectURI=x
+    // click on View Profile
+
   },
 
   async incrementCount(){
@@ -181,8 +202,8 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   if (message.command){
     if (message.command in actions){
       actions[message.command]().then(
-        result => { log('COMMAND SUCCESS', result) },
-        error => { log('COMMAND ERROR', error) },
+        result => { log(`COMMAND ${message.command} SUCCESS`, result) },
+        error => { log(`COMMAND ${message.command} ERROR`, error) },
       )
     }else{
       log(`unknown action "${message.command}"`)
