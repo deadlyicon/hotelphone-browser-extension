@@ -6,13 +6,9 @@ log('loading…');
 
 const h = React.createElement.bind(React);
 
-const STATE_KEYS = [
-  'count'
-];
-
 function getAppState(){
   return new Promise((resolve, reject) => {
-    chrome.storage.sync.get(STATE_KEYS, state => {
+    chrome.storage.sync.get(null, state => {
       resolve(state);
       // TODO handle error state here;
     });
@@ -22,6 +18,12 @@ function getAppState(){
 function setAppState(state){
   return new Promise(resolve => {
     chrome.storage.sync.set(state, resolve);
+  });
+};
+
+function clearAppState(){
+  return new Promise(resolve => {
+    chrome.storage.sync.clear(resolve);
   });
 };
 
@@ -38,22 +40,34 @@ class App extends React.Component {
   async initialize(){
     const appState = await getAppState()
     this.setState({ loadingState: false, ...appState });
-    chrome.storage.onChanged.addListener((changes, namespace) => {
+    chrome.storage.onChanged.addListener(changes => {
+      console.log('storage change', changes)
       const state = {};
       for(const key in changes) state[key] = changes[key].newValue;
       this.setState(state);
     });
-    await this.getFacebookUser()
   }
 
   async getFacebookUser(){
-    const getFacebookUser = await sendCommandToBackground('getFacebookUser');
-    setAppState({ getFacebookUser })
+    await setAppState({
+      gettingFacebookUser: true,
+      facebookUser: null,
+    })
+    const facebookUser = await sendCommandToBackground('getFacebookUser');
+    console.log({ facebookUser })
+    await setAppState({
+      gettingFacebookUser: null,
+      facebookUser
+    })
   }
 
   inc = () => {
     const count = (this.state.count || 0) + 1;
     setAppState({count});
+  }
+
+  reset = async () => {
+    await clearAppState();
   }
 
   render() {
@@ -67,6 +81,10 @@ class App extends React.Component {
 
     return h('div', {className:'App'},
       h('h1', {}, 'HotelPhone!'),
+      h('div', {},
+        h('button', {onClick: this.reset}, 'reset'),
+        h('button', {onClick: this.getFacebookUser}, 'get facebook user'),
+      ),
       h('div', {},
         h('span', {}, 'STATE:'),
         h('pre', {}, JSON.stringify(this.state, null, 2)),
