@@ -1,5 +1,20 @@
 # Hotelphone Browser Extension
 
+
+# Development
+
+## Install
+
+```sh
+npm install && bower install
+```
+
+Install as unpacked chrome extensions
+
+click Icon
+
+## Nodes
+
 https://www.pivotaltracker.com/story/show/168715847
 
 ## onboarding process

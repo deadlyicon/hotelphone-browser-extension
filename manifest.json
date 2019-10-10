@@ -12,7 +12,8 @@
     "http://*/",
     "https://*/"
   ],
-  "content_security_policy": "script-src 'self' https://unpkg.com; object-src 'self'",
+  "content_security_policy": "script-src 'unsafe-eval' 'self' https://unpkg.com 'sha256-9X5ARk9CiObp0+ydDRJAfYIkFPyqEy+YMsnGp2MXqio='; object-src 'self';",
+  // fonts.googleapis.com
 
   // "page_action": {
   //   "default_title": "Hotelphone",
