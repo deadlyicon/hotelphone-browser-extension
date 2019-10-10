@@ -100,8 +100,11 @@ function sendMessageToTab(tab, message){
     chrome.tabs.sendMessage(
       tab.id,
       message,
-      function({error, ...response}){
-        if (error) { reject(error) } else { resolve(response) };
+      {},
+      function(response){
+        log('sendMessageToTab response', response)
+        if (response && response.error) { return reject(error) }
+        resolve(response);
       }
     );
   });
@@ -127,7 +130,8 @@ const actions = {
     while(true){
       await executeScript(facebookTab, {file: 'scripts/get_page_of_facebook_friends.js'});
       const pageOfFriends = await sendMessageToTab(facebookTab);
-      // facebookFriends.push(...pageOfFriends)
+      log('????', pageOfFriends);
+      facebookFriends.push(...pageOfFriends)
       await setAppState({ facebookFriends });
       break;
     }
@@ -174,14 +178,27 @@ const actions = {
 // messages come in from the popup
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   log('MESSAGE RECEIVED', message);
-  if (message.command in actions){
-    actions[message.command]().then(
-      result => { sendResponse({ success: true, result }) },
-      error => { sendResponse({ success: false, error }) },
-    )
+  if (message.command){
+    if (message.command in actions){
+      actions[message.command]().then(
+        result => { log('COMMAND SUCCESS', result) },
+        error => { log('COMMAND ERROR', error) },
+      )
+    }else{
+      log(`unknown action "${message.command}"`)
+    }
   }else{
-    sendResponse({success: false, error: `unknown action "${message.command}"`})
+    log(`unknown message`, message)
   }
-  return true;
+
+  // if (message.command in actions){
+  //   actions[message.command]().then(
+  //     result => { sendResponse({ success: true, result }) },
+  //     error => { sendResponse({ success: false, error }) },
+  //   )
+  // }else{
+  //   sendResponse({success: false, error: `unknown action "${message.command}"`})
+  // }
+  // return true;
 });
 
