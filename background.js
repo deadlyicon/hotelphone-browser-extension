@@ -21,13 +21,14 @@ log('loading…');
 
 chrome.browserAction.onClicked.addListener(function(){
   chrome.tabs.query({url: 'chrome-extension://*/status_page/index.html'}, function(tabs) {
-    console.log({ tabs })
     if (!tabs || tabs.length === 0){
       chrome.tabs.create({
         active: true,
         url:  'status_page/index.html'
       }, null);
     }else{
+      // chrome.windows.update(tabs[0].windowId, { active: true })
+      chrome.tabs.update(tabs[0].id, { active: true, highlighted: true })
       chrome.tabs.highlight({
         windowId: tabs[0].windowId,
         tabs: tabs.map(t => t.index)
@@ -80,7 +81,45 @@ function getAppState(keys){
 };
 
 
+function createFacebookTab(){
+  return new Promise((resolve, reject) => {
+    chrome.tabs.create({url: 'https://m.facebook.com/', active: false}, function(tab){
+      resolve(tab);
+    });
+  });
+};
+
+function getFacebookTab(){
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query({url: 'https://m.facebook.com/*'}, function(tabs) {
+      if (tabs[0]) return resolve(tabs[0]);
+      createFacebookTab.then(resolve, reject)
+    });
+  });
+}
+
+function executeScript(tab, options){
+  return new Promise((resolve, reject) => {
+    chrome.tabs.executeScript(tab.id, options, (results) => {
+      // TODO handle errors here
+      resolve(results[0])
+    });
+  });
+}
+
 const actions = {
+
+  async getFacebookUser(){
+    const facebookTab = await createFacebookTab();
+    const facebookUser = await executeScript(
+      facebookTab,
+      {
+        code: `document.querySelector('.profpic').closest('a[href]').pathname.slice(1)`,
+      },
+    );
+    chrome.tabs.remove([facebookTab.id]);
+    return facebookUser;
+  },
 
   async incrementCount(){
     const { count = 0 } = await getAppState(['count']);
@@ -123,11 +162,11 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   log('MESSAGE RECEIVED', message);
   if (message.command in actions){
     actions[message.command]().then(
-      result => { sendResponse({ success: true, result}) },
-      error => { sendResponse({ success: false, error}) },
+      result => { sendResponse({ success: true, result }) },
+      error => { sendResponse({ success: false, error }) },
     )
   }else{
-    sendResponse({success: false, error:'unknown action'})
+    sendResponse({success: false, error: `unknown action "${message.command}"`})
   }
   return true;
 });
