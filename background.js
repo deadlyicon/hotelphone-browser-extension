@@ -19,10 +19,35 @@ log('loading…');
 //   log('onRequest', payload);
 // });
 
+chrome.browserAction.onClicked.addListener(function(){
+  chrome.tabs.query({url: 'chrome-extension://*/status_page/index.html'}, function(tabs) {
+    console.log({ tabs })
+    if (!tabs || tabs.length === 0){
+      chrome.tabs.create({
+        active: true,
+        url:  'status_page/index.html'
+      }, null);
+    }else{
+      chrome.tabs.highlight({
+        windowId: tabs[0].windowId,
+        tabs: tabs.map(t => t.index)
+      })
+    }
+  });
+})
+
+
 chrome.runtime.onInstalled.addListener(function() {
+  // chrome.contextMenus.create({
+  //   "id": "sampleContextMenu",
+  //   "title": "Sample Context Menu",
+  //   "contexts": ["selection"]
+  // });
+
   chrome.storage.sync.set({color: '#3aa757'}, function() {
     console.log('The color is green.');
   });
+
   chrome.declarativeContent.onPageChanged.removeRules(undefined, function() {
     chrome.declarativeContent.onPageChanged.addRules(
       [
@@ -69,6 +94,7 @@ const actions = {
 
   async start(){
     let facebookTab
+    // TRY  https://mbasic.facebook.com/
     chrome.tabs.create({url: 'https://m.facebook.com/', active: false}, function(tab){
       facebookTab = tab
 
