@@ -1,23 +1,4 @@
-const log = (...args) =>
-  console.log('background.js:', ...args)
-;
-
-log('loading…');
-
-// // Called when the user clicks on the browser action.
-// chrome.browserAction.onClicked.addListener(function(tab) {
-//   log('CLICK', tab);
-//   // Send a message to the active tab
-//   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-//     const activeTab = tabs[0];
-//     chrome.tabs.sendMessage(activeTab.id, {"message": "clicked_browser_action"});
-//   });
-// });
-
-
-// chrome.extension.onRequest.addListener(function(payload) {
-//   log('onRequest', payload);
-// });
+const log = console.log.bind(console);
 
 chrome.browserAction.onClicked.addListener(function(){
   chrome.tabs.query({url: 'chrome-extension://*/status_page/index.html'}, function(tabs) {
@@ -60,7 +41,16 @@ chrome.runtime.onInstalled.addListener(function() {
 
 function setAppState(state){
   return new Promise(resolve => {
-    chrome.storage.local.set(state, resolve);
+    const keysToDelete = []
+    Object.keys(state).forEach(key => {
+      if (typeof state[key] === 'undefined'){
+        keysToDelete.push(key);
+        delete state[key];
+      }
+    });
+    chrome.storage.local.remove(keysToDelete, function(){
+      chrome.storage.local.set(state, resolve);
+    });
   });
 };
 
@@ -119,8 +109,19 @@ function sendMessageToTab(tab, message){
   });
 }
 
+let requestIdSequence = 0;
+async function _fetch(...args){
+  const requestId = ++requestIdSequence;
+  console.log(`request ${requestId}`, ...args);
+  const stateKey = `request:${requestId}`;
+  await setAppState({ [stateKey]: args });
+  const response = fetch(...args);
+  await setAppState({ [stateKey]: undefined });
+  return response;
+}
+
 async function fetchHTML(...args){
-  const response = await fetch(...args)
+  const response = await _fetch(...args)
   const doc = document.createElement('html');
   doc.response = response;
   doc.innerHTML = await response.text();
@@ -129,19 +130,45 @@ async function fetchHTML(...args){
 
 const actions = {
 
+
   async getCurrentFacebookUser(){
-    await setAppState({ gettingCurrentFacebookUser: true, currentFacebookUser: null });
-    const facebookTab = await createTab('https://mbasic.facebook.com');
-    await executeScript(facebookTab, {file: 'scripts/get_current_facebook_user.js'});
-    const currentFacebookUser = await sendMessageToTab(facebookTab);
-    await setAppState({ gettingCurrentFacebookUser: false, currentFacebookUser });
-    chrome.tabs.remove([facebookTab.id]);
+    // await setAppState({ gettingCurrentFacebookUser: true, currentFacebookUser: null });
+    // const facebookTab = await createTab('https://mbasic.facebook.com');
+    // await executeScript(facebookTab, {file: 'scripts/get_current_facebook_user.js'});
+    // const currentFacebookUser = await sendMessageToTab(facebookTab);
+    // await setAppState({ gettingCurrentFacebookUser: false, currentFacebookUser });
+    // chrome.tabs.remove([facebookTab.id]);
+    setAppState({ gettingCurrentFacebookUser: true });
+    const document = await fetchHTML('https://mbasic.facebook.com')
+    const link = document.querySelector('#mbasic_inline_feed_composer [role=presentation] a[href]');
+    const image = link.querySelector('img')
+    const currentFacebookUser = {
+      // uid
+      username: link.pathname.slice(1),
+      avatarImageUrl: image.src,
+      name: image.getAttribute('alt'),
+      profileUrl: `https://mbasic.facebook.com${link.pathname}`,
+    }
+    setAppState({ gettingCurrentFacebookUser: undefined, currentFacebookUser });
+  },
+
+  async getNumberOfFacebookFriends(){
+    setAppState({ gettingNumberOfFacebookFriends: true });
+    const document = await fetchHTML('https://mbasic.facebook.com/friends/center/mbasic')
+    const numberOfFacebookFriends = document
+      .querySelector('a[href="/friends/center/friends/?mff_nav=1"]')
+      .innerText.match(/\((\d+)\)/)[1]
+    setAppState({ gettingNumberOfFacebookFriends: undefined, numberOfFacebookFriends });
   },
 
   async getFacebookFriends(){
     try{
-      await setAppState({ gettingFacebookFriends: true, facebookFriendUids: [] });
-      const batchSize = 5;
+      await setAppState({
+        gettingFacebookFriends: true,
+        facebookFriendUids: [],
+        errorGettingFacebookFriends: undefined,
+      });
+      const batchSize = 20;
       let page = 0;
       const loadNextPage = async () => {
         const numberOfFriendsFound = await this.getPageOfFacebookFriends(page++);
@@ -149,25 +176,31 @@ const actions = {
         return loadNextPage();
       }
       await Promise.all(Array(batchSize).fill().map(loadNextPage))
-      await setAppState({ gettingFacebookFriends: false });
-    }catch(errorGettingFacebookFriends){
       await setAppState({
-        gettingFacebookFriends: false,
+        gettingFacebookFriends: undefined,
+        numberOfFriendsPagesLoaded: page,
+      });
+    }catch(errorGettingFacebookFriends){
+      console.error(errorGettingFacebookFriends)
+      await setAppState({
+        gettingFacebookFriends: undefined,
         errorGettingFacebookFriends,
       });
     }
   },
 
   async getPageOfFacebookFriends(page){
+    // `https://mbasic.facebook.com/deadlyicon/friends`
+    // https://mbasic.facebook.com/deadlyicon/friends?unit_cursor=AQHR5bLPyOvZcwakz3b89Z4MFqSlvj4fS0p8CN4SH_5XJ_kDu2NPozDqQibRIlG7Gm3ONylv7bCgEoRgE8_nIg4iNQ
+    // https://mbasic.facebook.com/deadlyicon/friends?unit_cursor=AQHRkRl-mSvkd_jjWfEJhUoNmnB-eY4j4DseJF7NdU4LqAm0Qjzbycj7vBAYK_knv163foL02TjxocEOH7JZwASJ8A
     const url = `https://mbasic.facebook.com/friends/center/friends/?ppk=${page}`
     const document = await fetchHTML(url)
     const friendNodes = document.querySelectorAll('#friends_center_main > div:nth-child(3) > div')
     const pageOfFriends = Array.from(friendNodes).map(friendNode => {
       const image = friendNode.querySelector('img[alt]');
       const link = friendNode.querySelector('a[href]');
-      const profileUrl = link.href
+      const profileUrl = `https://mbasic.facebook.com${link.getAttribute('href')}`;
       const uid = profileUrl.match(/uid=(\d+)/)[1];
-      // uid=103597&
       const mutualFriends = link.nextElementSibling;
       return {
         uid,
@@ -195,42 +228,7 @@ const actions = {
     // click on View Profile
 
   },
-
-  async incrementCount(){
-    const { count = 0 } = await getAppState(['count']);
-    await setAppState({ count: count + 1 })
-  },
-
-  async decrementCount(){
-    const { count = 0 } = await getAppState(['count']);
-    await setAppState({ count: count - 1 })
-  },
-
-  async start(){
-    let facebookTab
-    // TRY  https://mbasic.facebook.com/
-    chrome.tabs.create({url: 'https://m.facebook.com/', active: false}, function(tab){
-      facebookTab = tab
-
-      // chrome.tabs.onUpdated.addListener(function callback)
-      chrome.tabs.executeScript(
-        facebookTab.id,
-        {file: 'facebook_scraper.js', allFrames: true},
-        function(){
-          log('sending getFriends message');
-          chrome.tabs.sendMessage(
-            facebookTab.id,
-            {"command": "getFriends"},
-            function(response){
-              log('got response from getFriends message', response)
-            }
-          );
-        }
-      );
-    })
-  }
-
-}
+};
 
 // messages come in from the popup
 chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
@@ -259,3 +257,5 @@ chrome.runtime.onMessage.addListener(function(message, sender, sendResponse) {
   // return true;
 });
 
+log('Ready.');
+getAppState().then(appState => { log('appState', appState) })

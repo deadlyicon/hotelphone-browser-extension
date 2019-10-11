@@ -51,6 +51,8 @@ const
   ListItemText = F(MaterialUI.ListItemText),
   AppBar = F(MaterialUI.AppBar),
   Toolbar = F(MaterialUI.Toolbar),
+  Icon = F(MaterialUI.Icon),
+  Badge = F(MaterialUI.Badge),
   IconButton = F(MaterialUI.IconButton),
   Menu = F(MaterialUI.Menu);
 
@@ -67,21 +69,30 @@ const theme = MaterialUI.createMuiTheme({
 const App = F(class App extends React.Component {
   constructor(){
     super()
-    this.state = {loadingState: true};
+    this.state = {}
     this.initialize().catch(initializationError => {
+      console.error('initializationError', initializationError)
       this.setState({ initializationError });
     });
   }
 
   async initialize(){
-    const appState = await getAppState()
-    this.setState({ loadingState: false, ...appState });
     chrome.storage.local.onChanged.addListener(changes => {
-      const state = {};
-      for(const key in changes) state[key] = changes[key].newValue;
-      this.setState(state);
+      // const state = {};
+      // for(const key in changes) state[key] = changes[key].newValue;
+      // this.setState(state);
+      cancelAnimationFrame(this.animationFrameId);
+      this.animationFrameId = requestAnimationFrame(() => {
+        getAppState().then(appState => {
+          this.appState = appState;
+          this.forceUpdate();
+        })
+      })
     });
-    if (!appState.currentFacebookUser) exec('getCurrentFacebookUser');
+    this.appState = await getAppState()
+    if (!this.appState.currentFacebookUser) exec('getCurrentFacebookUser');
+    if (!this.appState.numberOfFacebookFriends) exec('getNumberOfFacebookFriends');
+    this.forceUpdate()
   }
 
   reset = async () => {
@@ -90,17 +101,8 @@ const App = F(class App extends React.Component {
   }
 
   render() {
-    const {
-      loadingState,
-      facebookUsername,
-      facebookFriendUids = [],
-    } = this.state;
-
-    const facebookFriends = facebookFriendUids.map(facebookFriendUid =>
-      this.state[`facebookFriend:${facebookFriendUid}`]
-    )
-
-    if (loadingState) return (
+    console.log('RENDER', this.appState)
+    if (!this.appState) return (
       Layout({},
         Box({
           display: 'flex',
@@ -113,7 +115,24 @@ const App = F(class App extends React.Component {
       )
     )
 
-    return Layout({...this.state},
+    const {
+      loadingState,
+      currentFacebookUser,
+      facebookFriendUids = [],
+    } = this.appState;
+
+    const facebookFriends = facebookFriendUids.map(facebookFriendUid =>
+      this.appState[`facebookFriend:${facebookFriendUid}`]
+    )
+
+    const requests = Object.keys(this.appState)
+      .filter(stateKey => stateKey.match(/^request:\d+$/))
+      .map(stateKey => this.appState[stateKey])
+
+
+    return Layout({
+      ...this.appState, facebookFriends, requests
+    },
       div({},
         Button(
           {
@@ -143,7 +162,13 @@ const App = F(class App extends React.Component {
         ListItem({},
           ListItemText({
             primary: 'Facebook Username',
-            secondary: facebookUsername,
+            secondary: currentFacebookUser && currentFacebookUser.username,
+          })
+        ),
+        ListItem({},
+          ListItemText({
+            primary: 'Number of Facebook friends',
+            secondary: this.appState.numberOfFacebookFriends,
           })
         ),
         ListItem({},
@@ -152,13 +177,19 @@ const App = F(class App extends React.Component {
             secondary: facebookFriendUids.length,
           })
         ),
+        ListItem({},
+          ListItemText({
+            primary: 'Requests',
+            secondary: requests.length,
+          })
+        ),
       ),
 
       FacebookAvatars({ facebookFriends }),
 
       div({},
         span({}, 'STATE:'),
-        pre({}, JSON.stringify(this.state, null, 2)),
+        pre({}, JSON.stringify(this.appState, null, 2)),
       ),
     );
   }
@@ -169,6 +200,11 @@ const Layout = F(props =>
     AppBar({ position: 'static' },
       Toolbar({},
         Typography({variant:'h6'}, 'HotelPhone!'),
+        (props.requests && props.requests.length > 0 &&
+          Badge({badgeContent: props.requests.length},
+            CircularProgress({ })
+          )
+        ),
         span({style: {flexGrow: 1}}),
         props.currentFacebookUser
           ? Link(
