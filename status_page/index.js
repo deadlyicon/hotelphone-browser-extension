@@ -26,11 +26,15 @@ function exec(command){
   chrome.runtime.sendMessage({ command });
 }
 
-// const h = React.createElement.bind(React);
-const F = component =>
-  (...args) => React.createElement(component, ...args)
-;
-// const FM = materialUIComponent => F(MaterialUI[materialUIComponent])
+function F(component){
+  if (!component) // || (typeof component !== 'string' && typeof component !== 'function'))
+    throw new Error('F requires either a string or a class')
+  const factory = function(...args){
+    return React.createElement(component, ...args);
+  };
+  factory.component = component;
+  return factory;
+};
 
 const
   div = F('div'),
@@ -39,18 +43,20 @@ const
   a = F('a');
 
 const
-  MuiThemeProvider = F(MaterialUI.MuiThemeProvider)
-  Container = F(MaterialUI.Container)
-  Typography = F(MaterialUI.Typography)
-  CircularProgress = F(MaterialUI.CircularProgress)
-  Button = F(MaterialUI.Button)
-  Grid = F(MaterialUI.Grid)
-  Avatar = F(MaterialUI.Avatar)
-  List = F(MaterialUI.List)
-  ListItem = F(MaterialUI.ListItem)
-  ListItemText = F(MaterialUI.ListItemText)
-  AppBar = F(MaterialUI.AppBar)
-;
+  MuiThemeProvider = F(MaterialUI.MuiThemeProvider),
+  Container = F(MaterialUI.Container),
+  Typography = F(MaterialUI.Typography),
+  CircularProgress = F(MaterialUI.CircularProgress),
+  Button = F(MaterialUI.Button),
+  Grid = F(MaterialUI.Grid),
+  Avatar = F(MaterialUI.Avatar),
+  List = F(MaterialUI.List),
+  ListItem = F(MaterialUI.ListItem),
+  ListItemText = F(MaterialUI.ListItemText),
+  AppBar = F(MaterialUI.AppBar),
+  Toolbar = F(MaterialUI.Toolbar),
+  IconButton = F(MaterialUI.IconButton),
+  Menu = F(MaterialUI.Menu);
 
 const theme = MaterialUI.createMuiTheme({
   // palette: {
@@ -62,7 +68,7 @@ const theme = MaterialUI.createMuiTheme({
   // },
 });
 
-const App = F(class extends React.Component {
+const App = F(class App extends React.Component {
   constructor(){
     super()
     this.state = {loadingState: true};
@@ -107,8 +113,6 @@ const App = F(class extends React.Component {
     )
 
     return Layout({},
-      Typography({variant:'h1', gutterBottom: true}, 'HotelPhone!'),
-
       // buttons
       div({},
         Button(
@@ -160,40 +164,37 @@ const App = F(class extends React.Component {
   }
 })
 
-
-
-const Layout = F(class extends React.PureComponent {
-  render(){
-    return Container({className: 'Layout'},
-      AppBar({},
-
-      ),
-      this.props.children,
-    )
-  }
-});
-
-const FacebookAvatars = F(class extends React.PureComponent {
-  render(){
-    const { facebookFriends = [] } = this.props;
-    const nodes = facebookFriends.map(friend =>
-      a(
-        {
-          key: friend.uid,
-          href: friend.profileUrl,
-          title: friend.name,
-          alt: friend.name,
-          target: '_blank',
-        },
-        Avatar({
-          alt: friend.name,
-          className: 'FacebookAvatars-avatar',
-          src: friend.avatarImageUrl,
-        })
+const Layout = F(props =>
+  div({className: 'Layout'},
+    AppBar({ position: 'static' },
+      Toolbar({},
+        Typography({variant:'h6'}, 'HotelPhone!'),
+        span({style: {flexGrow: 1}}),
+        Button({color: 'inherit'}, 'Login'),
       )
+    ),
+    Container({}, props.children)
+  )
+);
+
+const FacebookAvatars = F(function({ facebookFriends = [] }){
+  const nodes = facebookFriends.map(friend =>
+    a(
+      {
+        key: friend.uid,
+        href: friend.profileUrl,
+        title: friend.name,
+        alt: friend.name,
+        target: '_blank',
+      },
+      Avatar({
+        alt: friend.name,
+        className: 'FacebookAvatars-avatar',
+        src: friend.avatarImageUrl,
+      })
     )
-    return Grid({className: 'FacebookAvatars'}, nodes);
-  }
+  )
+  return Grid({className: 'FacebookAvatars'}, nodes);
 });
 
 ReactDOM.render(
