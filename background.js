@@ -136,24 +136,19 @@ const actions = {
       const facebookFriendUids = new Set;
       const batchSize = 5;
       let page = 0;
-      while(true){
-        const batch = await Promise.all(
-          Array(batchSize).fill().map(() =>
-            this.getPageOfFacebookFriends(page++)
-          )
-        )
-        console.log({batch})
+      const loadNextPage = async () => {
+        const { pageOfFriends } = await this.getPageOfFacebookFriends(page++)
+        if (pageOfFriends.length === 0) return;
         const newState = {};
-        batch.forEach(page => {
-          page.pageOfFriends.forEach(friend => {
-            facebookFriendUids.add(friend.uid);
-            newState[`facebookFriend:${friend.uid}`] = friend;
-          })
-        });
+        pageOfFriends.forEach(friend => {
+          facebookFriendUids.add(friend.uid);
+          newState[`facebookFriend:${friend.uid}`] = friend;
+        })
         newState.facebookFriendUids = Array.from(facebookFriendUids);
         await setAppState(newState);
-        if (!batch[batchSize-1].nextPageOfFriends) break;
+        return loadNextPage();
       }
+      await Promise.all(Array(batchSize).fill().map(loadNextPage))
       await setAppState({ gettingFacebookFriends: false });
     }catch(errorGettingFacebookFriends){
       await setAppState({
