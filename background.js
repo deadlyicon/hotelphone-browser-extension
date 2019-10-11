@@ -121,20 +121,18 @@ function sendMessageToTab(tab, message){
 
 const actions = {
 
-  async getFacebookUsername(){
-    await setAppState({ gettingFacebookUser: true, facebookUsername: null });
-    const facebookTab = await createTab('https://m.facebook.com/');
-    const facebookUsername = await executeScript(
-      facebookTab,
-      {code: `document.querySelector('.profpic').closest('a[href]').pathname.slice(1)`, },
-    );
+  async getCurrentFacebookUser(){
+    await setAppState({ gettingCurrentFacebookUser: true, currentFacebookUser: null });
+    const facebookTab = await createTab('https://mbasic.facebook.com');
+    await executeScript(facebookTab, {file: 'scripts/get_current_facebook_user.js'});
+    const currentFacebookUser = await sendMessageToTab(facebookTab);
+    await setAppState({ gettingCurrentFacebookUser: false, currentFacebookUser });
     chrome.tabs.remove([facebookTab.id]);
-    await setAppState({ gettingFacebookUser: false, facebookUsername });
   },
 
   async getFacebookFriends(){
     try{
-      await setAppState({ gettingFacebookFriends: true, facebookFriends: [] });
+      await setAppState({ gettingFacebookFriends: true, facebookFriendUids: [] });
       let nextPageOfFriends = 'https://mbasic.facebook.com/friends/center/friends/';
       const facebookFriendUids = new Set;
       while(true){
@@ -148,7 +146,7 @@ const actions = {
           facebookFriendUids.add(friend.uid);
           newState[`facebookFriend:${friend.uid}`] = friend;
         })
-        newState = Array.from(facebookFriendUids);
+        newState.facebookFriendUids = Array.from(facebookFriendUids);
         await setAppState(newState);
         nextPageOfFriends = results.nextPageOfFriends;
         chrome.tabs.remove([facebookTab.id]);

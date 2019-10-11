@@ -1,9 +1,3 @@
-const log = (...args) =>
-  console.log('STATUS PAGE', ...args)
-;
-
-log('loading…');
-
 function getAppState(){
   return new Promise((resolve, reject) => {
     chrome.storage.local.get(null, resolve);
@@ -46,6 +40,8 @@ const
   MuiThemeProvider = F(MaterialUI.MuiThemeProvider),
   Container = F(MaterialUI.Container),
   Typography = F(MaterialUI.Typography),
+  Box = F(MaterialUI.Box),
+  Link = F(MaterialUI.Link),
   CircularProgress = F(MaterialUI.CircularProgress),
   Button = F(MaterialUI.Button),
   Grid = F(MaterialUI.Grid),
@@ -81,11 +77,11 @@ const App = F(class App extends React.Component {
     const appState = await getAppState()
     this.setState({ loadingState: false, ...appState });
     chrome.storage.local.onChanged.addListener(changes => {
-      console.log('storage change', changes)
       const state = {};
       for(const key in changes) state[key] = changes[key].newValue;
       this.setState(state);
     });
+    if (!appState.currentFacebookUser) exec('getCurrentFacebookUser');
   }
 
   reset = async () => {
@@ -94,8 +90,6 @@ const App = F(class App extends React.Component {
   }
 
   render() {
-    log('render', this.state)
-
     const {
       loadingState,
       facebookUsername,
@@ -108,12 +102,18 @@ const App = F(class App extends React.Component {
 
     if (loadingState) return (
       Layout({},
-        CircularProgress({ color: 'secondary' })
+        Box({
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          m: 2,
+        },
+          CircularProgress({ })
+        )
       )
     )
 
-    return Layout({},
-      // buttons
+    return Layout({...this.state},
       div({},
         Button(
           {
@@ -124,10 +124,10 @@ const App = F(class App extends React.Component {
         ),
         Button(
           {
-            onClick: () => { exec('getFacebookUsername') },
+            onClick: () => { exec('getCurrentFacebookUser'); },
             color: 'primary'
           },
-          'get facebook user'
+          'get current facebook user'
         ),
         Button(
           {
@@ -170,7 +170,25 @@ const Layout = F(props =>
       Toolbar({},
         Typography({variant:'h6'}, 'HotelPhone!'),
         span({style: {flexGrow: 1}}),
-        Button({color: 'inherit'}, 'Login'),
+        props.currentFacebookUser
+          ? Link(
+            {
+              href: props.currentFacebookUser.profileUrl,
+              target: '_blank',
+              rel: 'noopener',
+            },
+            Avatar({
+              alt: props.currentFacebookUser.name,
+              src: props.currentFacebookUser.avatarImageUrl,
+            })
+          )
+          : Button(
+            {
+              color: 'inherit',
+              onClick: () => { exec('getCurrentFacebookUser'); },
+            },
+            'Not Logged In'
+          ),
       )
     ),
     Container({}, props.children)
