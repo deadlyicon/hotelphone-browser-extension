@@ -4,6 +4,7 @@
   "version": "0.1",
   "description": "loading data for Hotelphone",
   "permissions": [
+    // "webRequest",
     "activeTab",
     "tabs",
     "declarativeContent",

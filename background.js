@@ -119,6 +119,14 @@ function sendMessageToTab(tab, message){
   });
 }
 
+async function fetchHTML(...args){
+  const response = await fetch(...args)
+  const doc = document.createElement('html');
+  doc.response = response;
+  doc.innerHTML = await response.text();
+  return doc;
+}
+
 const actions = {
 
   async getCurrentFacebookUser(){
@@ -133,19 +141,11 @@ const actions = {
   async getFacebookFriends(){
     try{
       await setAppState({ gettingFacebookFriends: true, facebookFriendUids: [] });
-      const facebookFriendUids = new Set;
       const batchSize = 5;
       let page = 0;
       const loadNextPage = async () => {
-        const { pageOfFriends } = await this.getPageOfFacebookFriends(page++)
-        if (pageOfFriends.length === 0) return;
-        const newState = {};
-        pageOfFriends.forEach(friend => {
-          facebookFriendUids.add(friend.uid);
-          newState[`facebookFriend:${friend.uid}`] = friend;
-        })
-        newState.facebookFriendUids = Array.from(facebookFriendUids);
-        await setAppState(newState);
+        const numberOfFriendsFound = await this.getPageOfFacebookFriends(page++);
+        if (numberOfFriendsFound === 0) return;
         return loadNextPage();
       }
       await Promise.all(Array(batchSize).fill().map(loadNextPage))
@@ -160,11 +160,34 @@ const actions = {
 
   async getPageOfFacebookFriends(page){
     const url = `https://mbasic.facebook.com/friends/center/friends/?ppk=${page}`
-    const facebookTab = await createTab(url);
-    await executeScript(facebookTab, {file: 'scripts/get_page_of_facebook_friends.js'});
-    const results = await sendMessageToTab(facebookTab);
-    chrome.tabs.remove([facebookTab.id]);
-    return results;
+    const document = await fetchHTML(url)
+    const friendNodes = document.querySelectorAll('#friends_center_main > div:nth-child(3) > div')
+    const pageOfFriends = Array.from(friendNodes).map(friendNode => {
+      const image = friendNode.querySelector('img[alt]');
+      const link = friendNode.querySelector('a[href]');
+      const profileUrl = link.href
+      const uid = profileUrl.match(/uid=(\d+)/)[1];
+      // uid=103597&
+      const mutualFriends = link.nextElementSibling;
+      return {
+        uid,
+        avatarImageUrl: image.src,
+        name: image.getAttribute('alt'),
+        profileUrl,
+        mutualFriendsCount: mutualFriends.innerText.split(/\s+/)[0],
+      };
+    })
+
+    let { facebookFriendUids } = await getAppState(['facebookFriendUids']);
+    facebookFriendUids = new Set(facebookFriendUids);
+    const newState = {};
+    pageOfFriends.forEach(friend => {
+      facebookFriendUids.add(friend.uid);
+      newState[`facebookFriend:${friend.uid}`] = friend;
+    })
+    newState.facebookFriendUids = Array.from(facebookFriendUids);
+    await setAppState(newState);
+    return pageOfFriends.length;
   },
 
   async getFacebookFriendProfile(){
