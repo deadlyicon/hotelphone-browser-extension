@@ -133,23 +133,26 @@ const actions = {
   async getFacebookFriends(){
     try{
       await setAppState({ gettingFacebookFriends: true, facebookFriendUids: [] });
-      let nextPageOfFriends = 'https://mbasic.facebook.com/friends/center/friends/';
       const facebookFriendUids = new Set;
+      const batchSize = 5;
+      let page = 0;
       while(true){
-        if (!nextPageOfFriends) break;
-        const facebookTab = await createTab(nextPageOfFriends);
-        await executeScript(facebookTab, {file: 'scripts/get_page_of_facebook_friends.js'});
-        const results = await sendMessageToTab(facebookTab);
-        log(results);
+        const batch = await Promise.all(
+          Array(batchSize).fill().map(() =>
+            this.getPageOfFacebookFriends(page++)
+          )
+        )
+        console.log({batch})
         const newState = {};
-        results.pageOfFriends.forEach(friend => {
-          facebookFriendUids.add(friend.uid);
-          newState[`facebookFriend:${friend.uid}`] = friend;
-        })
+        batch.forEach(page => {
+          page.pageOfFriends.forEach(friend => {
+            facebookFriendUids.add(friend.uid);
+            newState[`facebookFriend:${friend.uid}`] = friend;
+          })
+        });
         newState.facebookFriendUids = Array.from(facebookFriendUids);
         await setAppState(newState);
-        nextPageOfFriends = results.nextPageOfFriends;
-        chrome.tabs.remove([facebookTab.id]);
+        if (!batch[batchSize-1].nextPageOfFriends) break;
       }
       await setAppState({ gettingFacebookFriends: false });
     }catch(errorGettingFacebookFriends){
@@ -158,6 +161,15 @@ const actions = {
         errorGettingFacebookFriends,
       });
     }
+  },
+
+  async getPageOfFacebookFriends(page){
+    const url = `https://mbasic.facebook.com/friends/center/friends/?ppk=${page}`
+    const facebookTab = await createTab(url);
+    await executeScript(facebookTab, {file: 'scripts/get_page_of_facebook_friends.js'});
+    const results = await sendMessageToTab(facebookTab);
+    chrome.tabs.remove([facebookTab.id]);
+    return results;
   },
 
   async getFacebookFriendProfile(){
