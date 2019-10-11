@@ -4,8 +4,6 @@ const log = (...args) =>
 
 log('loading…');
 
-const h = React.createElement.bind(React);
-
 function getAppState(){
   return new Promise((resolve, reject) => {
     chrome.storage.local.get(null, resolve);
@@ -28,18 +26,31 @@ function exec(command){
   chrome.runtime.sendMessage({ command });
 }
 
-const {
-  MuiThemeProvider,
-  Container,
-  Typography,
-  CircularProgress,
-  Button,
-  Grid,
-  Avatar,
-  List,
-  ListItem,
-  ListItemText,
-} = MaterialUI;
+// const h = React.createElement.bind(React);
+const F = component =>
+  (...args) => React.createElement(component, ...args)
+;
+// const FM = materialUIComponent => F(MaterialUI[materialUIComponent])
+
+const
+  div = F('div'),
+  span = F('span'),
+  pre = F('pre'),
+  a = F('a');
+
+const
+  MuiThemeProvider = F(MaterialUI.MuiThemeProvider)
+  Container = F(MaterialUI.Container)
+  Typography = F(MaterialUI.Typography)
+  CircularProgress = F(MaterialUI.CircularProgress)
+  Button = F(MaterialUI.Button)
+  Grid = F(MaterialUI.Grid)
+  Avatar = F(MaterialUI.Avatar)
+  List = F(MaterialUI.List)
+  ListItem = F(MaterialUI.ListItem)
+  ListItemText = F(MaterialUI.ListItemText)
+  AppBar = F(MaterialUI.AppBar)
+;
 
 const theme = MaterialUI.createMuiTheme({
   // palette: {
@@ -51,7 +62,7 @@ const theme = MaterialUI.createMuiTheme({
   // },
 });
 
-class App extends React.Component {
+const App = F(class extends React.Component {
   constructor(){
     super()
     this.state = {loadingState: true};
@@ -71,12 +82,9 @@ class App extends React.Component {
     });
   }
 
-  async getFacebookUser(){
-    await exec('getFacebookUser');
-  }
-
   reset = async () => {
     await clearAppState();
+    // TODO stop background jobs
   }
 
   render() {
@@ -93,34 +101,31 @@ class App extends React.Component {
     )
 
     if (loadingState) return (
-      h(Container, {className: 'App'},
-        h(CircularProgress, { color: 'secondary' })
+      Layout({},
+        CircularProgress({ color: 'secondary' })
       )
     )
 
-    return h(Container, {className: 'App'},
-      h(Typography, {variant:'h1', gutterBottom: true}, 'HotelPhone!'),
+    return Layout({},
+      Typography({variant:'h1', gutterBottom: true}, 'HotelPhone!'),
 
       // buttons
-      h('div', {},
-        h(
-          Button,
+      div({},
+        Button(
           {
             onClick: this.reset,
-            color: 'secondary',
+            color: 'secondary'
           },
           'reset'
         ),
-        h(
-          Button,
+        Button(
           {
             onClick: () => { exec('getFacebookUsername') },
-            color: 'primary',
+            color: 'primary'
           },
           'get facebook user'
         ),
-        h(
-          Button,
+        Button(
           {
             onClick: () => { exec('getFacebookFriends') },
             color: 'primary',
@@ -130,41 +135,49 @@ class App extends React.Component {
       ),
 
       // facebooks slurp state
-      h(List, { dense: true },
-        h(ListItem, {},
-          h(ListItemText, {
+      List({ dense: true },
+        ListItem({},
+          ListItemText({
             primary: 'Facebook Username',
             secondary: facebookUsername,
           })
         ),
-        h(ListItem, {},
-          h(ListItemText, {
+        ListItem({},
+          ListItemText({
             primary: 'Number of slupred Facebook friends',
             secondary: facebookFriendUids.length,
           })
         ),
       ),
 
-      h(FacebookAvatars, { facebookFriends }),
+      FacebookAvatars({ facebookFriends }),
 
-      h('div', {},
-        h('span', {}, 'STATE:'),
-        h('pre', {}, JSON.stringify(this.state, null, 2)),
+      div({},
+        span({}, 'STATE:'),
+        pre({}, JSON.stringify(this.state, null, 2)),
       ),
     );
   }
-}
+})
 
-ReactDOM.render(
-  h(MuiThemeProvider, {theme}, h(App)),
-  document.querySelector('main')
-);
 
-class FacebookAvatars extends React.PureComponent {
+
+const Layout = F(class extends React.PureComponent {
+  render(){
+    return Container({className: 'Layout'},
+      AppBar({},
+
+      ),
+      this.props.children,
+    )
+  }
+});
+
+const FacebookAvatars = F(class extends React.PureComponent {
   render(){
     const { facebookFriends = [] } = this.props;
     const nodes = facebookFriends.map(friend =>
-      h('a',
+      a(
         {
           key: friend.uid,
           href: friend.profileUrl,
@@ -172,13 +185,18 @@ class FacebookAvatars extends React.PureComponent {
           alt: friend.name,
           target: '_blank',
         },
-        h(Avatar, {
+        Avatar({
           alt: friend.name,
           className: 'FacebookAvatars-avatar',
           src: friend.avatarImageUrl,
         })
       )
     )
-    return h(Grid, {className: 'FacebookAvatars'}, nodes);
+    return Grid({className: 'FacebookAvatars'}, nodes);
   }
-}
+});
+
+ReactDOM.render(
+  MuiThemeProvider({theme}, App()),
+  document.querySelector('main')
+);
